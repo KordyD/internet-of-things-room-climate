@@ -18,8 +18,13 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "control_enabled": False,
     "command_cooldown_seconds": 300,
     "purifier_pm25_threshold": 35,
+    "purifier_pm25_low_threshold": 15,
+    "purifier_auto_on_pm25_enabled": True,
+    "purifier_auto_off_pm25_enabled": True,
     "humidifier_humidity_high_threshold": 65,
     "humidifier_humidity_low_threshold": 40,
+    "humidifier_auto_on_low_humidity_enabled": True,
+    "humidifier_auto_off_high_humidity_enabled": True,
 }
 
 
@@ -90,7 +95,7 @@ def get_settings() -> dict[str, Any]:
         rows = db.execute("select key, value from settings").fetchall()
     values = DEFAULT_SETTINGS.copy()
     values.update({row["key"]: json.loads(row["value"]) for row in rows})
-    return values
+    return normalize_settings(values)
 
 
 def update_settings(changes: dict[str, Any]) -> dict[str, Any]:
@@ -99,8 +104,10 @@ def update_settings(changes: dict[str, Any]) -> dict[str, Any]:
     if unknown:
         raise ValueError(f"Unknown settings: {', '.join(sorted(unknown))}")
 
+    previous = get_settings()
+    current = normalize_settings({**previous, **changes})
     with connect() as db:
-        for key, value in changes.items():
+        for key, value in current.items():
             db.execute(
                 """
                 insert into settings(key, value) values (?, ?)
@@ -108,7 +115,61 @@ def update_settings(changes: dict[str, Any]) -> dict[str, Any]:
                 """,
                 (key, json.dumps(value)),
             )
-    return get_settings()
+    log_setting_changes(previous, current, changes)
+    return current
+
+
+def normalize_settings(values: dict[str, Any]) -> dict[str, Any]:
+    normalized = values.copy()
+
+    purifier_low = normalized.get("purifier_pm25_low_threshold")
+    purifier_high = normalized.get("purifier_pm25_threshold")
+    if (
+        isinstance(purifier_low, (int, float))
+        and isinstance(purifier_high, (int, float))
+        and purifier_low > purifier_high
+    ):
+        normalized["purifier_pm25_low_threshold"] = purifier_high
+        normalized["purifier_pm25_threshold"] = purifier_low
+
+    humidity_low = normalized.get("humidifier_humidity_low_threshold")
+    humidity_high = normalized.get("humidifier_humidity_high_threshold")
+    if (
+        isinstance(humidity_low, (int, float))
+        and isinstance(humidity_high, (int, float))
+        and humidity_low > humidity_high
+    ):
+        normalized["humidifier_humidity_low_threshold"] = humidity_high
+        normalized["humidifier_humidity_high_threshold"] = humidity_low
+
+    return normalized
+
+
+def log_setting_changes(previous: dict[str, Any], current: dict[str, Any], changes: dict[str, Any]) -> None:
+    setting_events = {
+        "purifier_pm25_threshold": ("purifier", "info", "Верхний порог PM2.5 изменен"),
+        "purifier_pm25_low_threshold": ("purifier", "info", "Нижний порог PM2.5 изменен"),
+        "purifier_auto_on_pm25_enabled": ("purifier", "info", "Сценарий авто-включения очистителя обновлен"),
+        "purifier_auto_off_pm25_enabled": ("purifier", "info", "Сценарий авто-выключения очистителя обновлен"),
+        "humidifier_humidity_low_threshold": ("humidifier", "info", "Нижний порог влажности изменен"),
+        "humidifier_humidity_high_threshold": ("humidifier", "info", "Верхний порог влажности изменен"),
+        "humidifier_auto_on_low_humidity_enabled": ("humidifier", "info", "Сценарий авто-включения увлажнителя обновлен"),
+        "humidifier_auto_off_high_humidity_enabled": ("humidifier", "info", "Сценарий авто-выключения увлажнителя обновлен"),
+        "automations_enabled": ("system", "info", "Главный режим автоматики обновлен"),
+        "control_enabled": ("system", "warning", "Режим отправки команд на устройства обновлен"),
+    }
+
+    for key, new_value in changes.items():
+        old_value = previous.get(key)
+        if old_value == current.get(key):
+            continue
+
+        event = setting_events.get(key)
+        if not event:
+            continue
+
+        device, severity, title = event
+        insert_event(device, severity, f"{title}: {old_value} -> {new_value}.")
 
 
 def insert_measurements(rows: list[dict[str, Any]]) -> None:

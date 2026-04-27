@@ -7,155 +7,274 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <main class="app">
-      <header class="hero">
-        <div>
-          <span class="eyebrow">Умный климат комнаты</span>
-          <h1>Панель контроля воздуха</h1>
-          <p>Показатели обновляются автоматически, а пороги автоматизации можно менять прямо здесь.</p>
+    <main class="app-shell">
+      <header class="masthead panel-surface">
+        <div class="masthead-copy">
+          <span class="eyebrow">Room Climate Control</span>
+          <h1>Панель управления климатом комнаты</h1>
+          <p>Дэшборд для контроля воздуха, порогов автоматики и ручного управления устройствами.</p>
+          <div class="hero-pills">
+            <span class="pill" id="automationModePill">Автоматизация: проверяем подключение</span>
+            <span class="pill subtle" id="commandModePill">Команды: ожидание статуса</span>
+            <span class="pill status-pill" id="status">Загружаем данные...</span>
+          </div>
         </div>
-        <div class="hero-actions">
-          <p id="status">Подключение...</p>
-          <button id="pollNow" type="button"><span class="button-loader" aria-hidden="true"></span><span>Обновить сейчас</span></button>
+
+        <div class="masthead-actions">
+          <article class="sync-card">
+            <span class="sync-label">Автообновление дэшборда</span>
+            <strong id="pollIntervalDisplay">1 сек</strong>
+            <small id="lastMeasurement">Ждем первые данные</small>
+          </article>
+
+          <div class="preset-row compact" aria-label="Частота автообновления дэшборда">
+            <button class="preset-button is-active" type="button" data-seconds="1">1 c</button>
+            <button class="preset-button" type="button" data-seconds="5">5 c</button>
+            <button class="preset-button" type="button" data-seconds="15">15 c</button>
+          </div>
+
+          <button id="pollNow" type="button">
+            <span class="button-loader" aria-hidden="true"></span>
+            <span>Обновить сейчас</span>
+          </button>
         </div>
       </header>
 
-      <section class="devices" aria-label="Device statuses">
-        <article class="device-card purifier">
-          <div>
-            <span>Очиститель</span>
-            <strong id="purifierStatus">--</strong>
-            <small id="purifierHint">Статус питания</small>
+      <section class="overview-grid" aria-label="Обзор текущего состояния комнаты">
+        <article class="panel-surface room-overview">
+          <div class="panel-heading">
+            <div>
+              <span class="section-kicker">Обзор комнаты</span>
+              <h2>Что происходит сейчас</h2>
+            </div>
           </div>
-          <label class="power-switch" aria-label="Включить очиститель">
-            <input id="purifierPowerToggle" data-device="purifier" type="checkbox" />
-            <span></span>
-          </label>
-        </article>
-        <article class="device-card humidifier">
-          <div>
-            <span>Увлажнитель</span>
-            <strong id="humidifierStatus">--</strong>
-            <small id="humidifierHint">Статус питания</small>
+
+          <div class="metric-grid">
+            <article class="metric-tile">
+              <span class="metric-label">PM2.5</span>
+              <strong id="pm25">--</strong>
+              <span class="metric-unit">ug/m3</span>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Температура</span>
+              <strong id="temperature">--</strong>
+              <span class="metric-unit">°C</span>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Влажность</span>
+              <strong id="humidity">--</strong>
+              <span class="metric-unit">%</span>
+            </article>
           </div>
-          <label class="power-switch" aria-label="Включить увлажнитель">
-            <input id="humidifierPowerToggle" data-device="humidifier" type="checkbox" />
-            <span></span>
-          </label>
         </article>
       </section>
 
-      <section class="gauges" aria-label="Current climate metrics">
-        <article class="gauge-card">
-          <div class="section-title compact">
-            <h2>PM2.5</h2>
-            <span>ug/m3</span>
-          </div>
-          <div id="pm25Gauge" class="gauge-surface"></div>
-          <strong id="pm25">--</strong>
-          <div class="gauge-caption" id="pm25GaugeCaption">Шкала 0-120, порог автоочистки 35</div>
-        </article>
-        <article class="gauge-card">
-          <div class="section-title compact">
-            <h2>Температура</h2>
-            <span>C</span>
-          </div>
-          <div id="temperatureGauge" class="gauge-surface"></div>
-          <strong id="temperature">--</strong>
-          <div class="gauge-caption" id="temperatureGaugeCaption">Шкала 10-35, без автоматического порога</div>
-        </article>
-        <article class="gauge-card">
-          <div class="section-title compact">
-            <h2>Влажность</h2>
-            <span>%</span>
-          </div>
-          <div id="humidityGauge" class="gauge-surface"></div>
-          <strong id="humidity">--</strong>
-          <div class="gauge-caption" id="humidityGaugeCaption">Шкала 0-100, пороги авто-режима из настроек</div>
-        </article>
-      </section>
+      <section class="dashboard-grid">
+        <div class="dashboard-main">
+          <section class="chart-grid" aria-label="История параметров комнаты">
+            <article class="panel-surface chart-card">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="section-kicker">Тренд воздуха</span>
+                  <h2>PM2.5</h2>
+                </div>
+              </div>
+              <div id="pm25Chart" class="chart-surface"></div>
+            </article>
 
-      <section class="chart-grid" aria-label="Metric charts">
-        <article class="panel chart-card">
-          <div class="section-title compact">
-            <h2>PM2.5</h2>
-            <span>Порог автоочистки</span>
-          </div>
-          <div id="pm25Chart" class="chart-surface"></div>
-        </article>
-        <article class="panel chart-card">
-          <div class="section-title compact">
-            <h2>Влажность</h2>
-            <span>Нижний и верхний пороги</span>
-          </div>
-          <div id="humidityChart" class="chart-surface"></div>
-        </article>
-        <article class="panel chart-card">
-          <div class="section-title compact">
-            <h2>Температура</h2>
-            <span>История измерений</span>
-          </div>
-          <div id="temperatureChart" class="chart-surface"></div>
-        </article>
-        <article class="panel chart-card">
-          <div class="section-title compact">
-            <h2>Скорость очистителя</h2>
-            <span>Обороты вентилятора</span>
-          </div>
-          <div id="motorChart" class="chart-surface"></div>
-        </article>
-      </section>
+            <article class="panel-surface chart-card">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="section-kicker">Тренд комфорта</span>
+                  <h2>Влажность</h2>
+                </div>
+              </div>
+              <div id="humidityChart" class="chart-surface"></div>
+            </article>
 
-      <section class="grid">
-        <form class="panel settings" id="settingsForm">
-          <div class="section-title">
-            <h2>Автоматизация</h2>
-            <span>Пороги и частота опроса</span>
-          </div>
-          <label>
-            Интервал опроса, секунд
-            <input name="poll_interval_seconds" type="number" min="1" max="3600" />
-          </label>
-          <label>
-            Порог PM2.5
-            <input name="purifier_pm25_threshold" type="number" min="0" step="1" />
-          </label>
-          <label>
-            Пауза между командами, секунд
-            <input name="command_cooldown_seconds" type="number" min="0" max="86400" step="1" />
-          </label>
-          <label>
-            Верхний порог влажности
-            <input name="humidifier_humidity_high_threshold" type="number" min="0" max="100" step="1" />
-          </label>
-          <label>
-            Нижний порог влажности
-            <input name="humidifier_humidity_low_threshold" type="number" min="0" max="100" step="1" />
-          </label>
-          <label class="toggle">
-            <input name="automations_enabled" type="checkbox" />
-            <span>
-              Умные режимы включены
-              <small>Backend будет сравнивать показания с порогами и создавать команды.</small>
-            </span>
-          </label>
-          <label class="toggle">
-            <input name="control_enabled" type="checkbox" />
-            <span>
-              Отправлять команды устройствам
-              <small>Автоматические команды будут реально уходить на устройства, а не только записываться как planned.</small>
-            </span>
-          </label>
-          <button type="submit">Сохранить настройки</button>
-        </form>
+            <article class="panel-surface chart-card">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="section-kicker">Тренд температуры</span>
+                  <h2>Температура</h2>
+                </div>
+              </div>
+              <div id="temperatureChart" class="chart-surface"></div>
+            </article>
 
-        <section class="panel">
-          <div class="section-title">
-            <h2>События</h2>
-            <span>Автоматизация и активность устройств</span>
-          </div>
-          <ul id="events" class="feed"></ul>
-        </section>
+            <article class="panel-surface chart-card">
+              <div class="panel-heading compact">
+                <div>
+                  <span class="section-kicker">Активность устройства</span>
+                  <h2>Мотор очистителя</h2>
+                </div>
+              </div>
+              <div id="motorChart" class="chart-surface"></div>
+            </article>
+          </section>
+
+          <section class="device-grid" aria-label="Устройства и связанные настройки">
+            <article class="panel-surface device-panel purifier-panel">
+              <div class="device-topline">
+                <div>
+                  <span class="section-kicker">Устройство</span>
+                  <h2>Очиститель воздуха</h2>
+                </div>
+                <span class="device-state" id="purifierStatus">--</span>
+              </div>
+
+              <p class="device-copy" id="purifierHint">Статус питания и последние изменения будут показаны здесь.</p>
+
+              <div class="toggle-row">
+                <div>
+                  <strong>Питание устройства</strong>
+                </div>
+                <label class="switch" aria-label="Включить очиститель">
+                  <input id="purifierPowerToggle" data-device="purifier" type="checkbox" />
+                  <span></span>
+                </label>
+              </div>
+
+              <div class="setting-cluster">
+                <div class="threshold-grid">
+                  <label class="field">
+                    <span>Нижний порог PM2.5</span>
+                    <div class="input-shell">
+                      <input id="purifierPm25LowThreshold" type="number" min="0" step="1" />
+                      <span class="unit-badge">ug/m3</span>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>Верхний порог PM2.5</span>
+                    <div class="input-shell">
+                      <input id="purifierPm25Threshold" type="number" min="0" step="1" />
+                      <span class="unit-badge">ug/m3</span>
+                    </div>
+                  </label>
+                </div>
+
+                <label class="checkbox-row">
+                  <input id="purifierAutoOnPm25Enabled" type="checkbox" />
+                  <span>
+                    <strong>Включать очиститель при превышении верхнего порога PM2.5</strong>
+                  </span>
+                </label>
+
+                <label class="checkbox-row">
+                  <input id="purifierAutoOffPm25Enabled" type="checkbox" />
+                  <span>
+                    <strong>Выключать очиститель при падении ниже нижнего порога PM2.5</strong>
+                  </span>
+                </label>
+
+                <div class="inline-control">
+                  <label class="field">
+                    <span>Скорость очистителя в Favorite / Manual</span>
+                    <div class="input-shell">
+                      <input id="purifierFavoriteLevel" type="number" min="1" max="15" step="1" value="1" />
+                      <span class="unit-badge">1-15</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div class="device-actions">
+                <button id="applyPurifierSettings" class="secondary-button" type="button">
+                  Применить настройки устройства
+                </button>
+              </div>
+            </article>
+
+            <article class="panel-surface device-panel humidifier-panel">
+              <div class="device-topline">
+                <div>
+                  <span class="section-kicker">Устройство</span>
+                  <h2>Увлажнитель</h2>
+                </div>
+                <span class="device-state" id="humidifierStatus">--</span>
+              </div>
+
+              <p class="device-copy" id="humidifierHint">Здесь будет виден текущий статус и время последнего обновления.</p>
+
+              <div class="toggle-row">
+                <div>
+                  <strong>Питание устройства</strong>
+                </div>
+                <label class="switch" aria-label="Включить увлажнитель">
+                  <input id="humidifierPowerToggle" data-device="humidifier" type="checkbox" />
+                  <span></span>
+                </label>
+              </div>
+
+              <div class="threshold-grid">
+                <label class="field">
+                  <span>Нижний порог влажности</span>
+                  <div class="input-shell">
+                    <input id="humidifierHumidityLowThreshold" type="number" min="0" max="100" step="1" />
+                    <span class="unit-badge">%</span>
+                  </div>
+                </label>
+
+                <label class="field">
+                  <span>Верхний порог влажности</span>
+                  <div class="input-shell">
+                    <input id="humidifierHumidityHighThreshold" type="number" min="0" max="100" step="1" />
+                    <span class="unit-badge">%</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="setting-cluster">
+                <label class="checkbox-row">
+                  <input id="humidifierAutoOnLowHumidityEnabled" type="checkbox" />
+                  <span>
+                    <strong>Включать увлажнитель при падении ниже нижнего порога</strong>
+                  </span>
+                </label>
+
+                <label class="checkbox-row">
+                  <input id="humidifierAutoOffHighHumidityEnabled" type="checkbox" />
+                  <span>
+                    <strong>Выключать увлажнитель при превышении верхнего порога</strong>
+                  </span>
+                </label>
+
+                <div class="inline-control">
+                  <label class="field">
+                    <span>Режим увлажнителя</span>
+                    <div class="input-shell">
+                      <select id="humidifierFanLevel">
+                        <option value="1">Уровень 1</option>
+                        <option value="2">Уровень 2</option>
+                        <option value="3">Уровень 3</option>
+                      </select>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div class="device-actions">
+                <button id="applyHumidifierSettings" class="secondary-button" type="button">
+                  Применить настройки устройства
+                </button>
+              </div>
+            </article>
+          </section>
+        </div>
+
+        <aside class="dashboard-side">
+          <article class="panel-surface event-card">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">Журнал</span>
+                <h2>События и команды</h2>
+              </div>
+              <span class="hint-text">Последние 12 записей</span>
+            </div>
+            <ul id="events" class="feed"></ul>
+          </article>
+        </aside>
       </section>
     </main>
     <script src="/static/vendor/echarts.min.js"></script>

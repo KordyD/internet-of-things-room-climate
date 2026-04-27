@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from miio.device import Device
@@ -56,7 +57,7 @@ class MiotClient:
 
     def _call(self, action: str, func: Any, *args: Any) -> Any:
         try:
-            return func(*args)
+            return self._normalize_response(func(*args))
         except Exception as exc:  # python-miio raises several transport/protocol exceptions.
             safe_message = (
                 f"{self.config.name} {action} failed "
@@ -64,6 +65,30 @@ class MiotClient:
                 f"{type(exc).__name__}: {exc}"
             )
             raise MiotClientError(safe_message) from exc
+
+    def _normalize_response(self, value: Any) -> Any:
+        if isinstance(value, (bytes, bytearray)):
+            try:
+                value = bytes(value).decode("utf-8")
+            except UnicodeDecodeError:
+                return value
+
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith("{") or stripped.startswith("["):
+                try:
+                    return self._normalize_response(json.loads(stripped))
+                except json.JSONDecodeError:
+                    return value
+            return value
+
+        if isinstance(value, list):
+            return [self._normalize_response(item) for item in value]
+
+        if isinstance(value, dict):
+            return {key: self._normalize_response(item) for key, item in value.items()}
+
+        return value
 
 
 def print_property_results(results: list[dict[str, Any]]) -> None:

@@ -19,7 +19,7 @@ class PropertySpec:
 PURIFIER_PROPS = [
     PropertySpec("power", 2, 1, "purifier_power", None),
     PropertySpec("fault", 2, 2),
-    PropertySpec("mode", 2, 4),
+    PropertySpec("mode", 2, 4, "purifier_mode", None),
     PropertySpec("pm25", 3, 4, "pm25", "ug/m3"),
     PropertySpec("filter_life_remaining", 4, 1, "filter_life_remaining", "%"),
     PropertySpec("filter_hours_used", 4, 3),
@@ -27,6 +27,7 @@ PURIFIER_PROPS = [
     PropertySpec("buzzer", 6, 1),
     PropertySpec("child_lock", 8, 1),
     PropertySpec("motor_speed", 9, 1, "purifier_motor_speed", "rpm"),
+    PropertySpec("favorite_level", 9, 11, "purifier_favorite_level", None),
     PropertySpec("aqi_realtime_update_duration", 11, 4),
     PropertySpec("led_brightness", 13, 2),
 ]
@@ -35,10 +36,12 @@ PURIFIER_PROPS = [
 HUMIDIFIER_PROPS = [
     PropertySpec("power", 2, 1, "humidifier_power", None),
     PropertySpec("fault", 2, 2),
-    PropertySpec("mode", 2, 5),
+    PropertySpec("mode", 2, 5, "humidifier_mode", None),
     PropertySpec("target_humidity", 2, 6, "target_humidity", "%"),
+    PropertySpec("status", 2, 7, "humidifier_status", None),
     PropertySpec("relative_humidity", 3, 1, "humidity", "%"),
     PropertySpec("temperature", 3, 7, "temperature", "C"),
+    PropertySpec("fan_level", 4, 5, "humidifier_fan_level", None),
     PropertySpec("buzzer", 5, 1),
     PropertySpec("led_light", 6, 1),
     PropertySpec("water_shortage_fault", 7, 1),

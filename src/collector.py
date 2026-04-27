@@ -6,9 +6,17 @@ import logging
 from typing import Any
 
 from src.config import AppConfig, DeviceConfig, load_config
-from src.db import command_seen_after, get_settings, insert_command, insert_event, insert_measurements, utc_now
+from src.db import (
+    command_seen_after,
+    get_settings,
+    insert_command,
+    insert_event,
+    insert_measurements,
+    latest_measurements,
+    utc_now,
+)
 from src.devices import DEVICE_PROPS, PropertySpec, specs_as_props, specs_by_did
-from src.miot_client import MiotClient
+from src.miot_client import MiotClient, MiotClientError
 
 
 logger = logging.getLogger(__name__)
@@ -16,7 +24,30 @@ logger = logging.getLogger(__name__)
 
 def read_device_measurements(device_config: DeviceConfig, specs: list[PropertySpec]) -> list[dict[str, Any]]:
     client = MiotClient(device_config)
-    results = client.get_properties_batched(specs_as_props(specs))
+    try:
+        results = client.get_properties_batched(specs_as_props(specs))
+    except MiotClientError as exc:
+        if "Unable to discover the device" in str(exc):
+            raise
+
+        logger.warning("Batched read failed for %s, retrying properties one-by-one: %s", device_config.name, exc)
+        results = []
+        errors = 0
+        for spec in specs:
+            try:
+                results.extend(client.get_properties([spec.as_miot_prop()]))
+            except MiotClientError as prop_exc:
+                errors += 1
+                logger.warning(
+                    "Skipping %s.%s for %s after read error: %s",
+                    spec.siid,
+                    spec.piid,
+                    device_config.name,
+                    prop_exc,
+                )
+        if not results and errors:
+            raise exc
+
     by_did = specs_by_did(device_config.name)
     measured_at = utc_now()
     rows: list[dict[str, Any]] = []
@@ -65,7 +96,11 @@ def collect_once(config: AppConfig | None = None) -> None:
     evaluate_automations(all_rows, settings)
 
 
-def evaluate_automations(rows: list[dict[str, Any]], settings: dict[str, Any]) -> None:
+def apply_automations_from_latest(settings: dict[str, Any] | None = None, *, force: bool = False) -> None:
+    evaluate_automations(latest_measurements(), settings or get_settings(), force=force)
+
+
+def evaluate_automations(rows: list[dict[str, Any]], settings: dict[str, Any], *, force: bool = False) -> None:
     if not settings.get("automations_enabled"):
         return
 
@@ -74,36 +109,74 @@ def evaluate_automations(rows: list[dict[str, Any]], settings: dict[str, Any]) -
     humidity = latest.get(("humidifier", "humidity"))
     control_enabled = bool(settings.get("control_enabled"))
 
-    if pm25 and pm25["value"] >= float(settings["purifier_pm25_threshold"]):
-        status = dispatch_command("purifier", "turn_on", {"reason": "pm25_threshold", "pm25": pm25["value"]}, settings)
+    if settings.get("purifier_auto_on_pm25_enabled") and pm25 and pm25["value"] >= float(settings["purifier_pm25_threshold"]):
+        status = dispatch_command(
+            "purifier",
+            "turn_on",
+            {"reason": "pm25_threshold", "pm25": pm25["value"]},
+            settings,
+            force=force,
+        )
         if status:
             insert_event("purifier", "warning", f"PM2.5 is {pm25['value']:.0f}; purifier action {status}.")
 
-    if humidity and humidity["value"] >= float(settings["humidifier_humidity_high_threshold"]):
+    if (
+        settings.get("purifier_auto_off_pm25_enabled")
+        and pm25
+        and pm25["value"] <= float(settings["purifier_pm25_low_threshold"])
+    ):
+        status = dispatch_command(
+            "purifier",
+            "turn_off",
+            {"reason": "pm25_low_threshold", "pm25": pm25["value"]},
+            settings,
+            force=force,
+        )
+        if status:
+            insert_event("purifier", "info", f"PM2.5 is {pm25['value']:.0f}; purifier off action {status}.")
+
+    if (
+        settings.get("humidifier_auto_off_high_humidity_enabled")
+        and humidity
+        and humidity["value"] >= float(settings["humidifier_humidity_high_threshold"])
+    ):
         status = dispatch_command(
             "humidifier",
             "turn_off",
             {"reason": "humidity_high_threshold", "humidity": humidity["value"]},
             settings,
+            force=force,
         )
         if status:
             insert_event("humidifier", "warning", f"Humidity is {humidity['value']:.0f}%; humidifier off action {status}.")
 
-    if humidity and humidity["value"] <= float(settings["humidifier_humidity_low_threshold"]):
+    if (
+        settings.get("humidifier_auto_on_low_humidity_enabled")
+        and humidity
+        and humidity["value"] <= float(settings["humidifier_humidity_low_threshold"])
+    ):
         status = dispatch_command(
             "humidifier",
             "turn_on",
             {"reason": "humidity_low_threshold", "humidity": humidity["value"]},
             settings,
+            force=force,
         )
         if status:
             insert_event("humidifier", "info", f"Humidity is {humidity['value']:.0f}%; humidifier on action {status}.")
 
 
-def dispatch_command(device_name: str, command: str, payload: dict[str, Any], settings: dict[str, Any]) -> str | None:
+def dispatch_command(
+    device_name: str,
+    command: str,
+    payload: dict[str, Any],
+    settings: dict[str, Any],
+    *,
+    force: bool = False,
+) -> str | None:
     cooldown = int(settings.get("command_cooldown_seconds", 300))
     after = (datetime.now(timezone.utc) - timedelta(seconds=cooldown)).isoformat()
-    if command_seen_after(device_name, command, after):
+    if not force and command_seen_after(device_name, command, after):
         return None
 
     if not settings.get("control_enabled"):
@@ -154,6 +227,54 @@ def set_device_power(device_name: str, power: bool) -> str:
         logger.warning("Manual command failed for %s: %s", device_name, exc)
         insert_command(device_name, command, payload, "failed")
         insert_event(device_name, "error", f"Manual {command} failed: {type(exc).__name__}: {exc}")
+        return "failed"
+
+
+def set_humidifier_fan_level(level: int) -> str:
+    config = load_config()
+    device_config = config.humidifier
+    payload = {"source": "manual", "level": level}
+    command = "set_fan_level"
+
+    if not device_config.is_configured:
+        insert_command("humidifier", command, payload, "failed")
+        insert_event("humidifier", "error", "Manual fan level change failed: device is not configured.")
+        return "failed"
+
+    try:
+        MiotClient(device_config).set_property(2, 5, level, did="mode")
+        insert_command("humidifier", command, payload, "sent")
+        insert_event("humidifier", "info", f"Manual humidifier mode set to {level}.")
+        return "sent"
+    except Exception as exc:
+        logger.warning("Manual humidifier fan level change failed: %s", exc)
+        insert_command("humidifier", command, payload, "failed")
+        insert_event("humidifier", "error", f"Manual humidifier mode change failed: {type(exc).__name__}: {exc}")
+        return "failed"
+
+
+def set_purifier_favorite_level(level: int) -> str:
+    config = load_config()
+    device_config = config.purifier
+    payload = {"source": "manual", "level": level}
+    command = "set_favorite_level"
+
+    if not device_config.is_configured:
+        insert_command("purifier", command, payload, "failed")
+        insert_event("purifier", "error", "Manual favorite level change failed: device is not configured.")
+        return "failed"
+
+    try:
+        client = MiotClient(device_config)
+        client.set_property(2, 4, 2, did="mode")
+        client.set_property(9, 11, level, did="favorite_level")
+        insert_command("purifier", command, payload, "sent")
+        insert_event("purifier", "info", f"Manual purifier favorite level set to {level}.")
+        return "sent"
+    except Exception as exc:
+        logger.warning("Manual purifier favorite level change failed: %s", exc)
+        insert_command("purifier", command, payload, "failed")
+        insert_event("purifier", "error", f"Manual favorite level change failed: {type(exc).__name__}: {exc}")
         return "failed"
 
 
