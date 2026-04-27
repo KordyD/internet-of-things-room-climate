@@ -1,6 +1,16 @@
-﻿venv
+venv
 .env
 artifacts/
 data/
 __pycache__/
 *.pyc
+*.sqlite3
+*.db
+report/iot-report/*.aux
+report/iot-report/*.fdb_latexmk
+report/iot-report/*.fls
+report/iot-report/*.log
+report/iot-report/*.out
+report/iot-report/*.pdf
+report/iot-report/*.synctex.gz
+report/iot-report/*.toc
