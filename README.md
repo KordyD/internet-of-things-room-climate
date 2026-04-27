@@ -1,43 +1,67 @@
 # Room Climate Control
 
-Demo application for local room climate monitoring and simple automation with Xiaomi MIoT devices.
+Локальный сервис для мониторинга климата в комнате и простой автоматизации устройств Xiaomi MIoT.
 
-## Structure
+Проект умеет:
 
-- `src/app.py` - FastAPI application and API routes.
-- `src/collector.py` - polling loop, automation rules, and command dispatch.
-- `src/db.py` - SQLite schema, settings, measurements, events, and commands.
-- `src/devices.py` - confirmed MIoT property mappings.
-- `src/static/` - dashboard served by FastAPI.
-- `scripts/miot.py` - single CLI for diagnostics, discovery, and confirmed manual control.
+- собирать телеметрию с очистителя воздуха и увлажнителя;
+- хранить историю измерений, журнал событий и журнал команд в SQLite;
+- показывать веб-дашборд с графиками, состоянием устройств и настройками порогов;
+- включать и выключать устройства вручную;
+- менять режим увлажнителя и скорость работы очистителя;
+- применять простые сценарии автоматики по `PM2.5` и влажности.
 
-## Run
+## Пример работы 1
 
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-Copy-Item .env.example .env
-```
+заглушка
 
-Fill `.env` with local device IPs and tokens, then start the app:
+## Пример работы 2
+
+заглушка
+
+## Структура
+
+- `src/app.py` — FastAPI-приложение и HTTP API.
+- `src/collector.py` — опрос устройств, автоматика и отправка команд.
+- `src/db.py` — SQLite, настройки, история измерений, события и команды.
+- `src/devices.py` — подтвержденные поля запрашиваемых устройств MIoT.
+- `src/miot_client.py` — клиент для чтения и записи MIoT-свойств.
+- `src/static/` — фронтенд дэшборда.
+- `scripts/miot.py` — CLI для диагностики, discovery и ручных проверок.
+- `data/climate.sqlite3` — локальная база данных, создается автоматически.
+
+## Поддерживаемые сценарии
+
+Очиститель воздуха:
+
+- авто-включение при превышении верхнего порога `PM2.5`;
+- авто-выключение при падении ниже нижнего порога `PM2.5`;
+- ручная установка скорости работы.
+
+Увлажнитель:
+
+- авто-включение при падении влажности ниже нижнего порога;
+- авто-выключение при превышении верхнего порога;
+- ручное переключение режима `1 / 2 / 3`.
+
+## Запуск
 
 ```powershell
 make run
 ```
 
-Dashboard: `http://127.0.0.1:8000`
+По умолчанию приложение стартует на:
 
-## Make Targets
+- `http://127.0.0.1:8008`
 
-- `make run` - start the FastAPI app.
-- `make dev` - start with reload.
-- `make poll` - run one collection cycle.
-- `make info` - read safe device info.
-- `make read-purifier` / `make read-humidifier` - read configured properties.
-- `make discover-purifier` / `make discover-humidifier` - read-only MIoT discovery.
-- `make check` - compile Python modules.
+## Основные команды
 
-## Automation Safety
-
-Automations are enabled by default, but physical commands are not sent until `control_enabled` is enabled in the dashboard. Before that, commands are stored as `planned` in SQLite so behavior can be reviewed safely.
+- `make install` — установить зависимости.
+- `make run` — запустить приложение.
+- `make dev` — запустить дев-приложение.
+- `make poll` — выполнить один цикл опроса вручную.
+- `make info` — получить безопасную информацию об устройствах.
+- `make read-purifier` — прочитать подтвержденные свойства очистителя.
+- `make read-humidifier` — прочитать подтвержденные свойства увлажнителя.
+- `make discover-purifier` — проверка наличия очистителя.
+- `make discover-humidifier` — проверка наличия увлажнителя.

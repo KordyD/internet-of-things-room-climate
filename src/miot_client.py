@@ -58,7 +58,7 @@ class MiotClient:
     def _call(self, action: str, func: Any, *args: Any) -> Any:
         try:
             return self._normalize_response(func(*args))
-        except Exception as exc:  # python-miio raises several transport/protocol exceptions.
+        except Exception as exc:
             safe_message = (
                 f"{self.config.name} {action} failed "
                 f"(ip={self.config.ip}, token={mask_token(self.config.token)}): "
