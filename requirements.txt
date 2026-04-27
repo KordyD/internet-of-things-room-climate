@@ -1,0 +1,4 @@
+python-miio
+python-dotenv
+fastapi
+uvicorn[standard]

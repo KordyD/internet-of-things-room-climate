@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Room Climate Control</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <div>
+          <span class="eyebrow">Умный климат комнаты</span>
+          <h1>Панель контроля воздуха</h1>
+          <p>Показатели обновляются автоматически, а пороги автоматизации можно менять прямо здесь.</p>
+        </div>
+        <div class="hero-actions">
+          <p id="status">Подключение...</p>
+          <button id="pollNow" type="button"><span class="button-loader" aria-hidden="true"></span><span>Обновить сейчас</span></button>
+        </div>
+      </header>
+
+      <section class="devices" aria-label="Device statuses">
+        <article class="device-card purifier">
+          <div>
+            <span>Очиститель</span>
+            <strong id="purifierStatus">--</strong>
+            <small id="purifierHint">Статус питания</small>
+          </div>
+          <label class="power-switch" aria-label="Включить очиститель">
+            <input id="purifierPowerToggle" data-device="purifier" type="checkbox" />
+            <span></span>
+          </label>
+        </article>
+        <article class="device-card humidifier">
+          <div>
+            <span>Увлажнитель</span>
+            <strong id="humidifierStatus">--</strong>
+            <small id="humidifierHint">Статус питания</small>
+          </div>
+          <label class="power-switch" aria-label="Включить увлажнитель">
+            <input id="humidifierPowerToggle" data-device="humidifier" type="checkbox" />
+            <span></span>
+          </label>
+        </article>
+      </section>
+
+      <section class="gauges" aria-label="Current climate metrics">
+        <article class="gauge-card">
+          <div class="section-title compact">
+            <h2>PM2.5</h2>
+            <span>ug/m3</span>
+          </div>
+          <div id="pm25Gauge" class="gauge-surface"></div>
+          <strong id="pm25">--</strong>
+          <div class="gauge-caption" id="pm25GaugeCaption">Шкала 0-120, порог автоочистки 35</div>
+        </article>
+        <article class="gauge-card">
+          <div class="section-title compact">
+            <h2>Температура</h2>
+            <span>C</span>
+          </div>
+          <div id="temperatureGauge" class="gauge-surface"></div>
+          <strong id="temperature">--</strong>
+          <div class="gauge-caption" id="temperatureGaugeCaption">Шкала 10-35, без автоматического порога</div>
+        </article>
+        <article class="gauge-card">
+          <div class="section-title compact">
+            <h2>Влажность</h2>
+            <span>%</span>
+          </div>
+          <div id="humidityGauge" class="gauge-surface"></div>
+          <strong id="humidity">--</strong>
+          <div class="gauge-caption" id="humidityGaugeCaption">Шкала 0-100, пороги авто-режима из настроек</div>
+        </article>
+      </section>
+
+      <section class="chart-grid" aria-label="Metric charts">
+        <article class="panel chart-card">
+          <div class="section-title compact">
+            <h2>PM2.5</h2>
+            <span>Порог автоочистки</span>
+          </div>
+          <div id="pm25Chart" class="chart-surface"></div>
+        </article>
+        <article class="panel chart-card">
+          <div class="section-title compact">
+            <h2>Влажность</h2>
+            <span>Нижний и верхний пороги</span>
+          </div>
+          <div id="humidityChart" class="chart-surface"></div>
+        </article>
+        <article class="panel chart-card">
+          <div class="section-title compact">
+            <h2>Температура</h2>
+            <span>История измерений</span>
+          </div>
+          <div id="temperatureChart" class="chart-surface"></div>
+        </article>
+        <article class="panel chart-card">
+          <div class="section-title compact">
+            <h2>Скорость очистителя</h2>
+            <span>Обороты вентилятора</span>
+          </div>
+          <div id="motorChart" class="chart-surface"></div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <form class="panel settings" id="settingsForm">
+          <div class="section-title">
+            <h2>Автоматизация</h2>
+            <span>Пороги и частота опроса</span>
+          </div>
+          <label>
+            Интервал опроса, секунд
+            <input name="poll_interval_seconds" type="number" min="1" max="3600" />
+          </label>
+          <label>
+            Порог PM2.5
+            <input name="purifier_pm25_threshold" type="number" min="0" step="1" />
+          </label>
+          <label>
+            Пауза между командами, секунд
+            <input name="command_cooldown_seconds" type="number" min="0" max="86400" step="1" />
+          </label>
+          <label>
+            Верхний порог влажности
+            <input name="humidifier_humidity_high_threshold" type="number" min="0" max="100" step="1" />
+          </label>
+          <label>
+            Нижний порог влажности
+            <input name="humidifier_humidity_low_threshold" type="number" min="0" max="100" step="1" />
+          </label>
+          <label class="toggle">
+            <input name="automations_enabled" type="checkbox" />
+            <span>
+              Умные режимы включены
+              <small>Backend будет сравнивать показания с порогами и создавать команды.</small>
+            </span>
+          </label>
+          <label class="toggle">
+            <input name="control_enabled" type="checkbox" />
+            <span>
+              Отправлять команды устройствам
+              <small>Автоматические команды будут реально уходить на устройства, а не только записываться как planned.</small>
+            </span>
+          </label>
+          <button type="submit">Сохранить настройки</button>
+        </form>
+
+        <section class="panel">
+          <div class="section-title">
+            <h2>События</h2>
+            <span>Автоматизация и активность устройств</span>
+          </div>
+          <ul id="events" class="feed"></ul>
+        </section>
+      </section>
+    </main>
+    <script src="/static/vendor/echarts.min.js"></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
